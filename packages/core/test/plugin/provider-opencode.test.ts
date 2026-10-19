@@ -130,76 +130,54 @@ const cost = (input: number, output = 0) => [
 ]
 
 describe("OpencodePlugin", () => {
-  it.effect("registers account and service account methods", () =>
+  it.effect("offers one OpenCode entry: account sign-in first, an API key second, with Go as its alias", () =>
     Effect.gen(function* () {
       yield* addPlugin()
       const integrations = yield* Integration.Service
-      expect((yield* integrations.get(Integration.ID.make("opencode")))?.methods).toEqual([
+      const opencode = yield* integrations.get(Integration.ID.make("opencode"))
+      expect(opencode?.name).toBe("OpenCode")
+      expect((yield* integrations.get(Integration.ID.make("opencode-go")))?.metadata).toEqual({ aliasOf: "opencode" })
+      expect(opencode?.methods).toEqual([
         {
           id: Integration.MethodID.make("device"),
           type: "oauth",
-          label: "OpenCode Console account",
+          label: "Sign in with your OpenCode account",
           form: [
             { key: "server", type: "string", format: "uri", hidden: true, default: "https://opencode.ai/console" },
           ],
         },
-        { type: "key", label: "API key (service account)" },
-      ])
-      expect((yield* integrations.get(Integration.ID.make("opencode-go")))?.methods).toEqual([
-        {
-          id: Integration.MethodID.make("device"),
-          type: "oauth",
-          label: "OpenCode Console account",
-          form: [
-            { key: "server", type: "string", format: "uri", hidden: true, default: "https://opencode.ai/console" },
-          ],
-        },
-        { type: "key", label: "API key" },
+        { type: "key", label: "Use an API key" },
       ])
     }),
   )
 
-  it.live("authorizes OpenCode Go with the Console device flow", () =>
-    Effect.acquireUseRelease(
-      Effect.sync(() => consoleServer("org-a")),
-      ({ server, config }) =>
-        Effect.gen(function* () {
-          yield* addPlugin()
-          const integrations = yield* Integration.Service
-          const credentials = yield* Credential.Service
-          const integrationID = Integration.ID.make("opencode-go")
-          const attempt = yield* integrations.oauth.connect({
-            integrationID,
-            methodID: Integration.MethodID.make("device"),
-            answer: { server: server.url.origin },
+  it.effect("serves OpenCode Go with an OpenCode API key unless Go has its own key", () =>
+    withEnv({ OPENCODE_API_KEY: undefined }, () =>
+      Effect.gen(function* () {
+        const catalog = yield* Provider.Service
+        const credentials = yield* Credential.Service
+        const go = Provider.ID.make("opencode-go")
+        yield* catalog.transform((catalog) => {
+          catalog.update(Provider.ID.opencode, () => {})
+          catalog.update(go, () => {})
+        })
+        yield* credentials.create({
+          integrationID: Integration.ID.make("opencode"),
+          value: Credential.Key.make({ type: "key", key: "secret" }),
+        })
+        yield* addPlugin().pipe(Effect.provideService(HttpClient.HttpClient, noRemoteConfig))
+        expect(required(yield* catalog.get(go)).integrationID).toBe(Integration.ID.make("opencode"))
+        expect((yield* catalog.available()).map((provider) => provider.id)).toContain(go)
+
+        yield* credentials
+          .create({
+            integrationID: Integration.ID.make("opencode-go"),
+            value: Credential.Key.make({ type: "key", key: "go-secret" }),
           })
-          const status = yield* eventually(
-            integrations.oauth.status({ integrationID, attemptID: attempt.attemptID }),
-            (status) => status.status !== "pending",
-          )
-          expect(status.status).toBe("complete")
-          expect((yield* credentials.list(integrationID))[0]).toMatchObject({
-            label: "Alpha",
-            value: {
-              type: "oauth",
-              access: "access",
-              refresh: "refresh",
-              metadata: {
-                server: server.url.origin,
-                accountID: "user",
-                email: "user@example.com",
-                orgID: "org-a",
-                orgName: "Alpha",
-              },
-            },
-          })
-          yield* eventually(
-            Effect.sync(() => config.length),
-            (count) => count > 0,
-          )
-          expect(config).toEqual([{ authorization: "Bearer access", orgID: "org-a" }])
-        }),
-      ({ server }) => Effect.promise(() => server.stop(true)),
+          .pipe(Effect.provideService(HttpClient.HttpClient, noRemoteConfig))
+        yield* drain
+        expect(required(yield* catalog.get(go)).integrationID).toBeUndefined()
+      }),
     ),
   )
 

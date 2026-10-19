@@ -15,7 +15,7 @@ import { ModelTooltip } from "./tooltip"
 
 type ModelState = ModelSelection
 
-const featuredProviders = ["opencode-go", "opencode", "openai", "anthropic", "google", "github-copilot"]
+const featuredProviders = ["opencode", "opencode-go", "openai", "anthropic", "google", "github-copilot"]
 
 const displayModelName = (name: string) => name.replace(/\s+(?:\(free\)|free)$/i, "")
 
@@ -140,7 +140,7 @@ export const DialogSelectModelUnpaid: Component<{ model?: ModelState }> = (props
               <div class="grid w-full grid-cols-1 gap-y-1.5 gap-x-2 sm:grid-cols-2">
                 <For
                   each={integrations
-                    .list()
+                    .connectable()
                     .filter((provider) => featuredProviders.includes(provider.id))
                     .sort((a, b) => featuredProviders.indexOf(a.id) - featuredProviders.indexOf(b.id))}
                 >

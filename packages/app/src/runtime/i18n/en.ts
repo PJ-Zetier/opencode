@@ -131,12 +131,12 @@ export const dict = {
   "dialog.provider.accounts.options": "{{account}} options",
 
   "provider.connect.title": "Connect {{provider}}",
-  "provider.connect.opencode.name": "OpenCode Console",
+  "provider.connect.opencode.name": "OpenCode",
   "provider.connect.opencode.freeName": "OpenCode Free",
   "provider.connect.opencode.errorTitle": "Connect to OpenCode",
   "provider.connect.console.title": "Connecting to OpenCode Console",
   "provider.connect.console.titleGo": "Connecting to OpenCode Go",
-  "provider.connect.console.intro": "Sign in with your OpenCode Console account to use the available models.",
+  "provider.connect.console.intro": "Sign in with your OpenCode account to use the available models.",
   "provider.connect.console.continue": "Continue in the browser",
   "provider.connect.console.retry": "Try again",
   "provider.connect.console.serviceKeyDescription": "Connect using a service-account API key from OpenCode Console.",
@@ -176,7 +176,7 @@ export const dict = {
   "provider.connect.console.modelsLoading": "Your models are still loading. Refresh to check again.",
   "provider.connect.console.refresh": "Refresh models",
   "provider.connect.console.openingBrowser": "Opening browser…",
-  "provider.connect.console.serviceAccount": "Service account?",
+  "provider.connect.console.serviceAccount": "Have an API key?",
   "provider.connect.console.useApiKey": "Use API key",
   "provider.connect.remote.title": "Connecting on “{{server}}”",
   "provider.connect.remote.description":

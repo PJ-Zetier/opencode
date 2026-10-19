@@ -58,11 +58,12 @@ export function useProviders(directory: Accessor<string | undefined>) {
     // comes from the integration list, with the provider catalog as fallback.
     popular: () => {
       const catalog = integrations
-        .list()
+        .connectable()
         .filter((integration) => popularProviderSet.has(integration.id))
         .map((integration) => ({ id: integration.id, name: integration.name }))
 
-      const seen = new Set(catalog.map((integration) => integration.id))
+      // Folded aliases count as seen, so the provider catalog does not bring them back.
+      const seen = new Set(integrations.list().map((integration) => integration.id))
 
       return pipe(
         providers().all,

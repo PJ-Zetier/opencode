@@ -237,14 +237,14 @@ function ProviderPicker(props: { directory?: string; onSelect: (provider: string
     filter: "",
   })
 
-  const featured = ["opencode-go", "opencode", "anthropic", "openai", "google", "openrouter", "vercel"]
+  const featured = ["opencode", "opencode-go", "anthropic", "openai", "google", "openrouter", "vercel"]
   const custom = () => ({ id: CUSTOM_ID, name: language.t("dialog.provider.custom.label") })
 
   const all = createMemo(() => {
     language.locale()
     const query = store.filter.trim().toLowerCase()
 
-    const values = [custom(), ...integrations.list()]
+    const values = [custom(), ...integrations.connectable()]
 
     if (!query) return values
 
@@ -272,7 +272,7 @@ function ProviderPicker(props: { directory?: string; onSelect: (provider: string
   const rows = createMemo(() => [...popular(), ...other()])
 
   const accountCount = (provider: { id: string }) =>
-    providerAccounts(integrations.list().find((integration) => integration.id === provider.id)).length
+    providerAccounts(integrations.connectable().find((integration) => integration.id === provider.id)).length
 
   let picker: HTMLDivElement | undefined
   let search: HTMLInputElement | undefined
@@ -464,8 +464,12 @@ function ProviderConnection(props: {
   })
 
   // Sorted by name so rows stay put when the server moves the active account first.
+  // OpenCode lists OpenCode Go's saved keys too, so they stay manageable from the one OpenCode entry.
   const serverAccounts = () =>
-    providerAccounts(integrations.list().find((integration) => integration.id === props.provider))
+    providerAccounts(
+      integrations.connectable().find((integration) => integration.id === props.provider) ??
+        integrations.list().find((integration) => integration.id === props.provider),
+    )
 
   const accounts = () => serverAccounts().toSorted((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id))
 

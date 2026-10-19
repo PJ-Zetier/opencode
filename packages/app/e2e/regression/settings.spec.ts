@@ -799,7 +799,7 @@ const consoleIntegrations = [
 ]
 
 for (const row of [
-  { provider: "OpenCode Console", connect: "Connect OpenCode Console", signIn: "Connecting to OpenCode Console" },
+  { provider: "OpenCode Console", connect: "Connect OpenCode", signIn: "Connecting to OpenCode Console" },
   { provider: "OpenCode Go", connect: "Connect OpenCode Go", signIn: "Connecting to OpenCode Go" },
 ]) {
   test(`providers: ${row.provider} signs in from the Console intro`, async ({ page, context }) => {
@@ -820,7 +820,7 @@ for (const row of [
     const intro = page.getByRole("dialog", { name: row.connect, exact: true })
     const container = page.locator('[data-slot="dialog-container"]')
     await expect(
-      intro.getByText("Sign in with your OpenCode Console account to use the available models."),
+      intro.getByText("Sign in with your OpenCode account to use the available models."),
     ).toBeVisible()
     await expect(intro.getByRole("button", { name: "Use API key", exact: true })).toBeVisible()
     expect((await container.boundingBox())?.height).toBe(512)
@@ -971,6 +971,47 @@ test("providers: adding a Go account uses a Go key, and a lone sign-in starts on
   expect(attempts).toEqual(["github-copilot"])
 })
 
+test("providers: OpenCode Go folds into one OpenCode row that keeps its key", async ({ page }) => {
+  const activated: string[] = []
+  const { settings } = await open(page, {
+    integrations: [
+      {
+        id: "opencode-go",
+        name: "OpenCode Go",
+        metadata: { aliasOf: "opencode" },
+        methods: [{ type: "key", label: "API key" }],
+        connections: [{ type: "credential", id: "cred_go", label: "Go key", method: "key" }],
+      },
+      {
+        id: "opencode",
+        name: "OpenCode",
+        methods: [
+          { id: "device", type: "oauth", label: "Sign in with your OpenCode account" },
+          { type: "key", label: "Use an API key" },
+        ],
+        connections: [{ type: "credential", id: "cred_team", label: "Team", method: "key" }],
+      },
+      { id: "anthropic", name: "Anthropic", methods: [{ type: "key", label: "API key" }], connections: [] },
+    ],
+    onCredentialActivate: (credentialID) => void activated.push(credentialID),
+  })
+
+  await settings.getByRole("tab", { name: "Providers", exact: true }).click()
+  await settings.getByRole("button", { name: "Show more providers", exact: true }).click()
+  const dialog = page.getByRole("dialog")
+  await expect(dialog.locator('[data-provider-id="anthropic"]')).toBeVisible()
+  await expect(dialog.locator('[data-provider-id="opencode-go"]')).toHaveCount(0)
+  const opencode = dialog.locator('[data-provider-id="opencode"]')
+  await expect(opencode.locator('[data-component="tag"]')).toHaveText("2")
+  await expect(dialog.locator("[data-provider-id]").first()).toHaveAttribute("data-provider-id", "opencode")
+
+  await opencode.click()
+  const list = dialog.getByRole("radiogroup", { name: "Connected accounts", exact: true })
+  await expect(list.getByRole("radio")).toHaveText(["Go key", "Team"])
+  await list.getByRole("radio", { name: "Go key", exact: true }).click()
+  expect(activated).toEqual(["cred_go"])
+})
+
 test("providers: the account options rename and remove the active account", async ({ page }) => {
   const account = { type: "credential", id: "cred_work", label: "Work", method: "key" }
   const other = { type: "credential", id: "cred_personal", label: "Personal", method: "key" }
@@ -1081,7 +1122,7 @@ test("providers: switching to a Zen API key does not wait for a Console workspac
   })
 
   await settings.getByRole("tab", { name: "Providers", exact: true }).click()
-  const trigger = settings.getByRole("button", { name: "Manage OpenCode Console accounts", exact: true })
+  const trigger = settings.getByRole("button", { name: "Manage OpenCode accounts", exact: true })
   await expect(trigger).toHaveText("Anomaly")
   await trigger.click()
 
@@ -1092,7 +1133,7 @@ test("providers: switching to a Zen API key does not wait for a Console workspac
       catalogReads.push(request.url())
   })
   await page.getByRole("menuitemradio", { name: "Zen key", exact: true }).click()
-  await expect(page.getByText("OpenCode Console account switched")).toBeVisible()
+  await expect(page.getByText("OpenCode account switched")).toBeVisible()
   // One refresh after the switch; a Console workspace poll would keep reading the catalog.
   expect(catalogReads).toHaveLength(1)
 })
@@ -1157,10 +1198,10 @@ test("providers: connecting OpenCode Go keeps the Console row in place", async (
 
   await settings.getByRole("tab", { name: "Providers", exact: true }).click()
   const connected = settings.locator('[data-component="connected-providers-section"]')
-  await expect(connected.getByText("OpenCode Console", { exact: true })).toBeVisible()
+  await expect(connected.getByText("OpenCode", { exact: true })).toBeVisible()
   await connected.evaluate((element) => {
     new MutationObserver(() => {
-      if (!element.textContent?.includes("OpenCode Console")) element.dataset.flashed = ""
+      if (!element.textContent?.includes("OpenCode")) element.dataset.flashed = ""
     }).observe(element, { childList: true, subtree: true, characterData: true })
   })
 
@@ -1175,7 +1216,7 @@ test("providers: connecting OpenCode Go keeps the Console row in place", async (
   await expect(page.getByRole("dialog")).toHaveCount(0)
 
   await expect(connected.getByText("OpenCode Go", { exact: true })).toBeVisible()
-  await expect(connected.getByText("OpenCode Console", { exact: true })).toBeVisible()
+  await expect(connected.getByText("OpenCode", { exact: true })).toBeVisible()
   await expect(connected).not.toHaveAttribute("data-flashed")
 })
 
@@ -1228,7 +1269,7 @@ test("providers: switching Console accounts keeps the list until the new workspa
 
   await settings.getByRole("tab", { name: "Providers", exact: true }).click()
   const connected = settings.locator('[data-component="connected-providers-section"]')
-  const trigger = connected.getByRole("button", { name: "Manage OpenCode Console accounts", exact: true })
+  const trigger = connected.getByRole("button", { name: "Manage OpenCode accounts", exact: true })
   await expect(trigger).toHaveText("Clara")
   await connected.evaluate((element) => {
     new MutationObserver(() => {
@@ -1238,7 +1279,7 @@ test("providers: switching Console accounts keeps the list until the new workspa
 
   await trigger.click()
   await page.getByRole("menuitemradio", { name: "Anomaly", exact: true }).click()
-  await expect(page.getByText("OpenCode Console account switched")).toBeVisible()
+  await expect(page.getByText("OpenCode account switched")).toBeVisible()
   await expect(trigger).toHaveText("Anomaly")
   await expect(connected).not.toHaveAttribute("data-flashed")
 })

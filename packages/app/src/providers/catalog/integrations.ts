@@ -1,3 +1,4 @@
+import { foldIntegrationAliases } from "@opencode/client/promise"
 import { useServerSDK } from "@/runtime/server/client"
 import { useData } from "@/runtime/server/current"
 import { createEffect, type Accessor } from "solid-js"
@@ -26,5 +27,7 @@ export function useIntegrations(directory: Accessor<string | undefined>) {
   return {
     ready: () => data.location.integration.list(location()) !== undefined,
     list: () => data.location.integration.list(location()) ?? [],
+    /** The connect list: aliases (OpenCode Go) are folded into the integration they stand in for (OpenCode). */
+    connectable: () => foldIntegrationAliases(data.location.integration.list(location()) ?? []),
   }
 }

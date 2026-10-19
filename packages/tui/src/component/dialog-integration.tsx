@@ -12,6 +12,7 @@ import type {
   FormValue,
   LocationRef,
 } from "@opencode/client"
+import { foldIntegrationAliases, resolveIntegrationAlias } from "@opencode/client"
 import { openUrl } from "@opencode/util/open"
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
 import { createStore } from "solid-js/store"
@@ -47,8 +48,8 @@ import {
 } from "../util/form"
 
 const INTEGRATION_PRIORITY: Record<string, number> = {
-  "opencode-go": 0,
-  opencode: 1,
+  opencode: 0,
+  "opencode-go": 1,
   openai: 2,
   "github-copilot": 3,
   anthropic: 4,
@@ -66,8 +67,9 @@ const SUBMIT = Symbol("submit")
 // Device-flow codes such as "R283-GOUEO"; when present they are copied instead of the URL.
 const OAUTH_CODE = /[A-Z0-9]{4}-[A-Z0-9]{4,5}/
 
+// Aliases (OpenCode Go under OpenCode) are folded into the integration they stand in for.
 export function integrationOptions(list: IntegrationInfo[]) {
-  return list.toSorted(
+  return foldIntegrationAliases(list).toSorted(
     (a, b) =>
       Number(b.metadata?.source === "mcp") - Number(a.metadata?.source === "mcp") ||
       (INTEGRATION_PRIORITY[a.id] ?? 99) - (INTEGRATION_PRIORITY[b.id] ?? 99) ||
@@ -105,11 +107,11 @@ export function DialogIntegration(
   const dialog = useDialog()
   const theme = useTheme().surface("dialog")
   const location = currentLocation.ref ?? data.location.default()
-  const integrations = createMemo(() =>
-    integrationOptions(data.location.integration.list(location) ?? []).filter(
-      (integration) => props.integrationID === undefined || integration.id === props.integrationID,
-    ),
-  )
+  const integrations = createMemo(() => {
+    const list = data.location.integration.list(location) ?? []
+    const wanted = props.integrationID && resolveIntegrationAlias(list, props.integrationID)
+    return integrationOptions(list).filter((integration) => !wanted || integration.id === wanted)
+  })
 
   createEffect(() => {
     if (!props.autoConnect) return
@@ -186,7 +188,7 @@ function manageConnections(
     const [deleting, setDeleting] = createSignal<string>()
     const [selected, setSelected] = createSignal(methods.length ? "add" : credentialConnections(integration)[0]?.id)
     const current = createMemo(() =>
-      data.location.integration.list(location)?.find((item) => item.id === integration.id),
+      foldIntegrationAliases(data.location.integration.list(location) ?? []).find((item) => item.id === integration.id),
     )
 
     return (

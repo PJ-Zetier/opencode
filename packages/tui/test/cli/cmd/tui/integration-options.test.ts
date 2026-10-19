@@ -24,7 +24,7 @@ describe("integrationOptions", () => {
         integration({ id: "opencode", name: "OpenCode Zen" }),
         integration({ id: "opencode-go", name: "OpenCode Go" }),
       ]).map((item) => item.id),
-    ).toEqual(["opencode-go", "opencode", "openai", "anthropic", "mistral", "custom-z"])
+    ).toEqual(["opencode", "opencode-go", "openai", "anthropic", "mistral", "custom-z"])
   })
 
   test("keeps MCP integrations above popular integrations without relying on their IDs", () => {
@@ -36,7 +36,22 @@ describe("integrationOptions", () => {
         integration({ id: "opencode", name: "OpenCode Zen" }),
         integration({ id: "opencode-go", name: "OpenCode Go" }),
       ]).map((item) => item.id),
-    ).toEqual(["github", "linear", "opencode-go", "opencode", "openai"])
+    ).toEqual(["github", "linear", "opencode", "opencode-go", "openai"])
+  })
+
+  test("lists an alias under the integration it stands in for", () => {
+    const options = integrationOptions([
+      integration({
+        id: "opencode-go",
+        name: "OpenCode Go",
+        metadata: { aliasOf: "opencode" },
+        connections: [{ type: "credential", id: "cred_go", label: "Go key", method: "key" }],
+      }),
+      integration({ id: "openai", name: "OpenAI" }),
+      integration({ id: "opencode", name: "OpenCode" }),
+    ])
+    expect(options.map((item) => item.id)).toEqual(["opencode", "openai"])
+    expect(credentialConnections(options[0]!).map((connection) => connection.id)).toEqual(["cred_go"])
   })
 })
 
