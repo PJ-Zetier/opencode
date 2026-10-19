@@ -7,10 +7,6 @@ import { encodeJson } from "../utils/json.js"
 const OPENAI_BASE_URL = "https://api.openai.com/v1"
 const XAI_BASE_URL = "https://api.x.ai/v1"
 const GOOGLE_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-const GOOGLE_LIVE_WS_URL =
-  "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained"
-const GEMINI_NEW_SESSION_TTL_MS = 60 * 1000
-const GEMINI_SESSION_TTL_MS = 30 * 60 * 1000
 
 export type RealtimeTransportInput =
   | { readonly type: "webrtc"; readonly sdp: string; readonly dcid?: number }
@@ -38,7 +34,6 @@ const engines = [
   { family: "gemini-3.5-transcribe-live", id: "gemini-live", provider: "google" },
   { family: "gemini-3.1-flash-live", id: "gemini-live", provider: "google" },
   { family: "gemini-2.5-flash-native-audio", id: "gemini-live", provider: "google" },
-  { family: "gemini-live", id: "gemini-live", provider: "google" },
 ] as const
 
 // Matches the bare family name (`gpt-realtime`) and its versions (`gpt-realtime-2.1`, `gpt-realtime-mini`).
@@ -87,7 +82,27 @@ export const connect = Effect.fn("Realtime.connect")(function* (input: RealtimeC
     case "gemini-live": {
       if (input.transport.type !== "websocket")
         return yield* invalidRequest("Google Gemini Live only supports WebSocket transport")
-      return yield* geminiAuthToken(resolved.id, input.model, input.apiKey, input.session)
+      const now = yield* Clock.currentTimeMillis
+      const expiresAt = now + 60_000
+      const data = yield* post(
+        resolved.id,
+        `${GOOGLE_BASE_URL}/auth_tokens`,
+        input.apiKey,
+        {
+          uses: 1,
+          expireTime: new Date(now + 30 * 60_000).toISOString(),
+          newSessionExpireTime: new Date(expiresAt).toISOString(),
+          bidiGenerateContentSetup: { ...input.session, model: `models/${input.model}` },
+        },
+        AuthTokenResponse,
+        "x-goog-api-key",
+      )
+      return {
+        type: "websocket" as const,
+        url: "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained",
+        token: data.name,
+        expiresAt: Math.floor(expiresAt / 1000),
+      }
     }
   }
 })
@@ -173,28 +188,3 @@ const clientSecret = (
       }),
     ),
   )
-
-const geminiAuthToken = (route: string, model: string, apiKey: Redacted.Redacted, session?: Record<string, unknown>) =>
-  Effect.gen(function* () {
-    const now = yield* Clock.currentTimeMillis
-    const newSessionExpiresAt = now + GEMINI_NEW_SESSION_TTL_MS
-    const data = yield* post(
-      route,
-      `${GOOGLE_BASE_URL}/auth_tokens`,
-      apiKey,
-      {
-        uses: 1,
-        expireTime: new Date(now + GEMINI_SESSION_TTL_MS).toISOString(),
-        newSessionExpireTime: new Date(newSessionExpiresAt).toISOString(),
-        bidiGenerateContentSetup: { ...session, model: `models/${model}` },
-      },
-      AuthTokenResponse,
-      "x-goog-api-key",
-    )
-    return {
-      type: "websocket" as const,
-      url: GOOGLE_LIVE_WS_URL,
-      token: data.name,
-      expiresAt: Math.floor(newSessionExpiresAt / 1000),
-    }
-  })

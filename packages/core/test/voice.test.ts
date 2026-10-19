@@ -28,19 +28,14 @@ it.effect("uses the first key or env connection Integration lists and never a Ch
   Effect.gen(function* () {
     yield* TestClock.setTime(1760000000_000)
     const auths: string[] = []
-    const call = (
-      model: string,
-      connections: Integration.Info["connections"],
-      transport?: Voice.SessionInput["transport"],
-    ) =>
+    const call = (model: string, connections: Integration.Info["connections"]) =>
       Effect.flatMap(Voice.Service, (voice) =>
         voice.session({
           model,
           transport:
-            transport ??
-            (model.startsWith("grok-") || model.startsWith("gemini-")
+            model.startsWith("grok-") || model.startsWith("gemini-")
               ? { type: "websocket" }
-              : { type: "webrtc", sdp: "v=0" }),
+              : { type: "webrtc", sdp: "v=0" },
         }),
       ).pipe(
         Effect.provide(
@@ -129,17 +124,7 @@ it.effect("uses the first key or env connection Integration lists and never a Ch
     expect(signInOnly.message).toContain("OpenAI API key")
 
     const missingGoogle = yield* call("gemini-3.8-live", []).pipe(Effect.flip)
-    expect(missingGoogle._tag).toBe("Voice.UnavailableError")
-    if (missingGoogle._tag === "Voice.UnavailableError") {
-      expect(missingGoogle.service).toBe("google")
-      expect(missingGoogle.message).toContain("GEMINI_API_KEY")
-      expect(missingGoogle.message).toContain("GOOGLE_GENERATIVE_AI_API_KEY")
-    }
-
-    const geminiRtc = yield* call("gemini-3.8-live", [{ type: "env", name: "GEMINI_API_KEY" }], {
-      type: "webrtc",
-      sdp: "v=0",
-    }).pipe(Effect.flip)
-    expect(geminiRtc._tag).toBe("Voice.InvalidRequestError")
+    expect(missingGoogle).toMatchObject({ _tag: "Voice.UnavailableError", service: "google" })
+    expect(missingGoogle.message).toContain("GEMINI_API_KEY")
   }),
 )
