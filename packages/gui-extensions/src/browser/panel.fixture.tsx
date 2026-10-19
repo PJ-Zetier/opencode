@@ -605,7 +605,10 @@ type RegionHost = {
   Commands: Component<{
     close: () => void
     palette: () => void
+    newSession: () => void
     chords: (chords: Accessor<readonly KeyChord[]>) => void
+    /** The shortcut the browser's + menu item shows, as the host formats it; empty when it shows none. */
+    shortcut: (shortcut: Accessor<string>) => void
   }>
   /** The real host wrapper that renders an extension in its context. */
   Contribution: Component<{ extension: string; children: () => JSX.Element }>
@@ -622,6 +625,10 @@ type RegionFixtureState = {
   closed: boolean
   /** How many times the command palette opened from a shortcut. */
   palette: number
+  /** How many times the shell's new session shortcut ran. */
+  sessions: number
+  /** How many browser tabs the pane asked main to open. */
+  opens: number
   /** Active app keybind chords the window sent to main. */
   shortcuts: readonly KeyChord[]
   /** The page main reports, blank or loaded. */
@@ -654,6 +661,8 @@ export function mountBrowserRegion(input: RegionHost) {
       away: false,
       closed: false,
       palette: 0,
+      sessions: 0,
+      opens: 0,
       shortcuts: [],
       blank: false,
       closes: [],
@@ -662,6 +671,7 @@ export function mountBrowserRegion(input: RegionHost) {
     // The file tree's state, Changes or All files, as the file extension stores it.
     const [tree, setTree] = createSignal<object>()
     const [chords, setChords] = createSignal<Accessor<readonly KeyChord[]>>(() => [])
+    const [shortcut, setShortcut] = createSignal<Accessor<string>>(() => "")
     const strip = (session: string) => store.strips[session] ?? { all: [] }
     const setAll = (session: string, all: string[]) => setStore("strips", session, "all", all)
 
@@ -825,6 +835,8 @@ export function mountBrowserRegion(input: RegionHost) {
       },
       load: async () => undefined,
       command: async (value) => {
+        if (value.command.type === "tabs.open") setStore("opens", (count) => count + 1)
+
         if (value.command.type !== "tabs.close") return
 
         const tabID = value.command.tabID
@@ -1049,7 +1061,9 @@ export function mountBrowserRegion(input: RegionHost) {
             <input.Commands
               close={() => setStore("closed", true)}
               palette={() => setStore("palette", (count) => count + 1)}
+              newSession={() => setStore("sessions", (count) => count + 1)}
               chords={(next) => setChords(() => next)}
+              shortcut={(next) => setShortcut(() => next)}
             />
             <h1 style={{ "font-size": "24px", "margin-bottom": "16px" }}>Restored side strip</h1>
             <nav style={{ display: "flex", gap: "12px", margin: "16px 0" }}>
@@ -1077,6 +1091,9 @@ export function mountBrowserRegion(input: RegionHost) {
             <p data-testid="tree">{JSON.stringify(tree())}</p>
             <p data-testid="session-state">{store.closed ? "closed" : "open"}</p>
             <p data-testid="palette-runs">{store.palette}</p>
+            <p data-testid="new-sessions">{store.sessions}</p>
+            <p data-testid="browser-opens">{store.opens}</p>
+            <p data-testid="add-shortcut">{shortcut()() || "none"}</p>
             <p data-testid="browser-closes">{JSON.stringify(store.closes)}</p>
             <Ready>
               <Strip />

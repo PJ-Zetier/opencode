@@ -35,6 +35,9 @@ test("classifies reserved browser chords, page-first app chords and page-owned c
     // Reserved by main: browser tab and window chords a page cannot claim.
     ["mod", "t", "t", true, "reserved"],
     ["mod", "t", "t", false, "reserved"],
+    // Dvorak: T is on the physical K key and Y on the physical T key; the character decides.
+    ["mod", "t", "t", true, "reserved", "KeyK"],
+    ["mod", "y", "y", true, "page", "KeyT"],
     ["mod", "w", "w", true, "reserved"],
     ["mod", "w", "w", false, "reserved"],
     ["mod", "n", "n", true, "reserved"],
