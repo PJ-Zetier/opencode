@@ -81,4 +81,47 @@ describe("sortModelOptions", () => {
 
     expect(sorted.map((model) => model.title)).toEqual(["Claude Opus 4", "Claude Sonnet 4"])
   })
+
+  test("orders preferred free OpenCode models ahead of newer free models", () => {
+    const sorted = sortModelOptions(
+      [
+        {
+          value: { providerID: "opencode", modelID: "nemotron-3.5-super-vl-free" },
+          providerID: "opencode",
+          releaseDate: 4000,
+          title: "Nemotron 3.5 Super VL Free",
+          footer: "Free",
+        },
+        {
+          value: { providerID: "opencode", modelID: "glm-5.3-flash-free" },
+          providerID: "opencode",
+          releaseDate: 2000,
+          title: "GLM 5.3 Flash",
+          footer: "Free",
+        },
+        {
+          value: { providerID: "opencode", modelID: "big-pickle" },
+          providerID: "opencode",
+          releaseDate: 1000,
+          title: "Big Pickle",
+          footer: "Free",
+        },
+        {
+          value: { providerID: "opencode", modelID: "deepseek-v4.1-flash-free" },
+          providerID: "opencode",
+          releaseDate: 3000,
+          title: "DeepSeek V4.1 Flash",
+          footer: "Free",
+        },
+      ],
+      false,
+    )
+
+    expect(sorted.map((model) => model.title)).toEqual([
+      "Big Pickle",
+      "DeepSeek V4.1 Flash",
+      "GLM 5.3 Flash",
+      "Nemotron 3.5 Super VL Free",
+    ])
+  })
 })

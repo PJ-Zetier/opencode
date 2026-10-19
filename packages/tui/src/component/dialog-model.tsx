@@ -178,7 +178,6 @@ export function DialogModel(props: { providerID?: string }) {
       skipFilter={true}
       title={title()}
       current={local.model.current()}
-      focusCurrent={false}
     />
   )
 }
@@ -192,9 +191,26 @@ export function prioritizeFavorites<T extends { value: { providerID: string; mod
   )
 }
 
+const PREFERRED_FREE = ["big-pickle", "deepseek-v4.1-flash-free", "glm-5.3-flash-free"]
+
+function preferredFreeRank(option: {
+  providerID?: string
+  modelID?: string
+  value?: { providerID: string; modelID: string }
+  footer?: string
+}) {
+  const providerID = option.providerID ?? option.value?.providerID
+  const modelID = option.modelID ?? option.value?.modelID
+  if (providerID !== "opencode" || option.footer !== "Free" || !modelID) return PREFERRED_FREE.length
+  const index = PREFERRED_FREE.indexOf(modelID)
+  return index === -1 ? PREFERRED_FREE.length : index
+}
+
 export function sortModelOptions<
   T extends {
     providerID?: string
+    modelID?: string
+    value?: { providerID: string; modelID: string }
     providerName?: string
     releaseDate: string | number
     title: string
@@ -213,6 +229,9 @@ export function sortModelOptions<
 
     const free = Number(b.footer === "Free") - Number(a.footer === "Free")
     if (free !== 0) return free
+
+    const preferred = preferredFreeRank(a) - preferredFreeRank(b)
+    if (preferred !== 0) return preferred
 
     const release = Number(b.releaseDate) - Number(a.releaseDate)
     if (release !== 0) return release
