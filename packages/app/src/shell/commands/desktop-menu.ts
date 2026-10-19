@@ -120,7 +120,13 @@ export const DESKTOP_MENU: DesktopMenu[] = [
         accelerator: { macos: "Cmd+Shift+N", windows: "Ctrl+Shift+N" },
       },
       { type: "separator" },
-      { type: "item", labelKey: "desktop.menu.closeWindow", action: "window.close", role: "close" },
+      {
+        type: "item",
+        labelKey: "desktop.menu.closeWindow",
+        action: "window.close",
+        role: "close",
+        accelerator: { macos: "Shift+Cmd+W", windows: "Ctrl+Shift+W" },
+      },
     ],
   },
   {
