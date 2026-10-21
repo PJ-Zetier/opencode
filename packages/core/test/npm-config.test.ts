@@ -4,6 +4,18 @@ import { Effect } from "effect"
 import { NpmConfig } from "@opencode/util/npm-config"
 import { tmpdir } from "./fixture/tmpdir"
 
+const withOffline = async (value: string | undefined, fn: () => void | Promise<void>) => {
+  const prev = process.env.OPENCODE_OFFLINE
+  if (value === undefined) delete process.env.OPENCODE_OFFLINE
+  else process.env.OPENCODE_OFFLINE = value
+  try {
+    await fn()
+  } finally {
+    if (prev === undefined) delete process.env.OPENCODE_OFFLINE
+    else process.env.OPENCODE_OFFLINE = prev
+  }
+}
+
 describe("NpmConfig.load", () => {
   test("reads registry from project .npmrc", async () => {
     await using tmp = await tmpdir()
@@ -31,6 +43,40 @@ describe("NpmConfig.load", () => {
 
     expect(config.ignoreScripts).toBe(true)
     expect(config.omit).toEqual(["dev", "optional"])
+  })
+
+  test("stays online without OPENCODE_OFFLINE", async () => {
+    await using tmp = await tmpdir()
+
+    await withOffline(undefined, async () => {
+      const config = await Effect.runPromise(NpmConfig.load(tmp.path))
+
+      expect(config.offline).toBe(false)
+      expect(config.preferOffline).toBe(false)
+    })
+  })
+
+  test("forces cache-only resolution when OPENCODE_OFFLINE is set", async () => {
+    await using tmp = await tmpdir()
+
+    await withOffline("1", async () => {
+      const config = await Effect.runPromise(NpmConfig.load(tmp.path))
+
+      expect(config.offline).toBe(true)
+      expect(config.preferOffline).toBe(true)
+    })
+  })
+
+  test("keeps explicitly configured offline keys under OPENCODE_OFFLINE", async () => {
+    await using tmp = await tmpdir()
+    await Bun.write(path.join(tmp.path, ".npmrc"), "offline=false\nprefer-offline=false\n")
+
+    await withOffline("true", async () => {
+      const config = await Effect.runPromise(NpmConfig.load(tmp.path))
+
+      expect(config.offline).toBe(false)
+      expect(config.preferOffline).toBe(false)
+    })
   })
 })
 

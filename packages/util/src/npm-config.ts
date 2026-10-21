@@ -27,7 +27,14 @@ export const load = (dir: string) =>
         warn: false,
       })
       await config.load()
-      return config.flat as Record<string, unknown>
+      const flat = config.flat as Record<string, unknown>
+      if (!["1", "true"].includes(process.env.OPENCODE_OFFLINE?.toLowerCase() ?? "")) return flat
+      // Force cache-only resolution so Arborist and pacote fail fast instead of waiting on an
+      // unreachable registry. Explicit npm configuration from any non-default source wins.
+      const defaulted = (key: string) => (config.find(key) ?? "default") === "default"
+      if (defaulted("offline")) flat.offline = true
+      if (defaulted("prefer-offline")) flat.preferOffline = true
+      return flat
     },
     catch: (cause) => cause,
   }).pipe(Effect.orElseSucceed(() => ({}) as Record<string, unknown>))

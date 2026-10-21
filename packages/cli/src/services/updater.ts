@@ -531,7 +531,11 @@ const make = Effect.gen(function* () {
   })
 
   const inspect = Effect.fnUntraced(function* () {
-    if (OPENCODE_LOCAL || ["1", "true"].includes(process.env.OPENCODE_DISABLE_AUTOUPDATE?.toLowerCase() ?? "")) {
+    if (
+      OPENCODE_LOCAL ||
+      ["1", "true"].includes(process.env.OPENCODE_DISABLE_AUTOUPDATE?.toLowerCase() ?? "") ||
+      ["1", "true"].includes(process.env.OPENCODE_OFFLINE?.toLowerCase() ?? "")
+    ) {
       yield* Effect.logInfo("update check skipped", {
         reason: OPENCODE_LOCAL ? "local-install" : "disabled",
         version: OPENCODE_VERSION,

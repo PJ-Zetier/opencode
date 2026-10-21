@@ -93,6 +93,9 @@ export namespace RipgrepBinary {
             const target = path.join(global.bin, `rg${process.platform === "win32" ? ".exe" : ""}`)
             if (yield* fs.isFile(target).pipe(Effect.orDie)) return target
 
+            if (["1", "true"].includes(process.env.OPENCODE_OFFLINE?.toLowerCase() ?? ""))
+              throw new Error("ripgrep is not installed and OPENCODE_OFFLINE disables downloads; install rg on PATH")
+
             const platformKey = `${process.arch}-${process.platform}` as keyof typeof PLATFORM
             const config = PLATFORM[platformKey]
             if (!config) throw new Error(`unsupported platform for ripgrep: ${platformKey}`)
