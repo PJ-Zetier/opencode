@@ -1,0 +1,117 @@
+---
+title: Offline
+description: Run OpenCode in offline and airgapped environments.
+---
+
+OpenCode starts and runs without internet access. At startup it normally reaches out for update checks, model catalog refreshes, plugin installs, and syntax highlighting assets. On offline or airgapped hosts, disable these and pre-seed the assets you need.
+
+:::note
+Offline mode covers the four downloads listed below. It is not a network sandbox; LLM providers, MCP servers, plugin code, and features with their own fetches — syntax highlighting assets, URL skill catalogs, remote instruction files, the OpenCode Console — still make their own connections.
+:::
+
+---
+
+## Offline mode
+
+Set a single switch to disable the update check, model catalog refresh, registry plugin installs, and the ripgrep download.
+
+```bash
+export OPENCODE_OFFLINE=1
+```
+
+This:
+
+- Skips the auto-update check.
+- Disables model catalog fetches; the bundled catalog and any cached copy are used instead.
+- Forces plugin installs to resolve from the local cache only, so a missing package fails fast instead of waiting on an unreachable registry. Explicit `offline` or `prefer-offline` settings in your npm configuration still win.
+- Skips the ripgrep download and reports a clear error if no `rg` binary is found.
+
+Offline mode is explicit only. OpenCode does not try to auto-detect that a host is offline.
+
+---
+
+## Individual switches
+
+Each behavior can also be controlled separately.
+
+| Variable                        | Type    | Description                                                          |
+| ------------------------------- | ------- | -------------------------------------------------------------------- |
+| `OPENCODE_OFFLINE`              | boolean | Disable the update, catalog, plugin install, and ripgrep downloads   |
+| `OPENCODE_DISABLE_AUTOUPDATE`   | boolean | Disable the auto-update check                                        |
+| `OPENCODE_DISABLE_MODELS_FETCH` | boolean | Disable fetching the model catalog from remote sources               |
+| `OPENCODE_MODELS_URL`           | string  | Fetch the model catalog from a custom URL, like an internal mirror   |
+| `OPENCODE_MODELS_PATH`          | string  | Load the model catalog from a local JSON file instead of the network |
+
+Boolean variables accept `1` or `true`.
+
+Auto-update can also be disabled through your config.
+
+```json title="opencode.json"
+{
+  "$schema": "https://opencode.ai/config.json",
+  "update": "disable"
+}
+```
+
+---
+
+## Models
+
+OpenCode ships with a bundled snapshot of the model catalog, so providers and models are available offline out of the box. With `OPENCODE_OFFLINE` or `OPENCODE_DISABLE_MODELS_FETCH` set, the catalog is simply not refreshed over the network.
+
+To control the catalog on airgapped hosts:
+
+- Set `OPENCODE_MODELS_PATH` to a local file with the same JSON shape as [`https://models.opencode.ai/api.json`](https://models.opencode.ai/api.json). A readable file takes precedence over the cache, the bundled snapshot, and the network.
+- Or set `OPENCODE_MODELS_URL` to an internal mirror of `https://models.opencode.ai`; the catalog is fetched from `<url>/api.json`.
+
+---
+
+## Plugins
+
+Plugins from npm are installed at startup through npm's resolver, honoring your npm configuration. Startup does not block on plugin installs: a cold install is bounded, a package that cannot be fetched surfaces as a plugin failure, and the install is retried on config changes.
+
+For airgapped hosts:
+
+- **Pin exact versions** in your config. A pinned version installs once and is never checked for updates; `latest`, tags, and ranges trigger background freshness checks against the registry.
+
+```json title="opencode.json"
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["opencode-wakatime@1.2.3", "@my-org/custom-plugin@2.0.0"]
+}
+```
+
+- **Pre-warm the plugin cache.** Installed plugins live under `~/.cache/opencode/npm/` — or `$XDG_CACHE_HOME/opencode/npm/` if set. Run OpenCode once with the same config on a connected machine, then copy that directory to the airgapped host. Cached packages are used without touching the network.
+
+- **Point npm at a LAN mirror.** Plugin installs load your npm configuration, so `registry=` in `~/.npmrc` or `npm_config_*` environment variables redirect installs to an internal registry. An explicit `offline=true` in `.npmrc` is honored the same way.
+
+```ini title="~/.npmrc"
+registry=https://npm.mirror.internal
+offline=true
+```
+
+---
+
+## Proxies
+
+OpenCode automatically exempts loopback from proxy environment variables: `127.0.0.1`, `localhost`, and `::1` are appended to `NO_PROXY` at startup, so a configured proxy can never capture the TUI's connection to the local server.
+
+Stale `HTTP_PROXY` or `HTTPS_PROXY` variables still route all external calls through the proxy. On airgapped hosts where the proxy is unreachable, unset them.
+
+See [Network](/docs/network) for proxy configuration.
+
+---
+
+## Pre-seed binary assets
+
+### ripgrep
+
+OpenCode uses [ripgrep](https://github.com/BurntSushi/ripgrep) for file searching. It looks for `rg` on your `PATH` first, then at `~/.cache/opencode/bin/rg`, and only downloads it from GitHub releases when neither exists. With `OPENCODE_OFFLINE` set, the download is skipped and a missing binary is reported as an error.
+
+Install ripgrep through your system package manager, or place the binary at `~/.cache/opencode/bin/rg`.
+
+### Syntax highlighting
+
+The TUI downloads tree-sitter grammars (`.wasm` files from GitHub releases) and their highlight queries (from GitHub raw URLs) on first use, and caches them under `~/.local/share/opentui/tree-sitter/` — or `$XDG_DATA_HOME/opentui/tree-sitter/` if set.
+
+On offline hosts without a warm cache, affected file types render without highlighting; everything else keeps working. Markdown, JavaScript, and TypeScript use built-in parsers and are always highlighted. To pre-seed, open files of the relevant types on a connected machine and copy the cache directory to the airgapped host.

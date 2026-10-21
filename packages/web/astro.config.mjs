@@ -177,6 +177,7 @@ export default defineConfig({
         "config",
         "providers",
         "network",
+        "offline",
         "enterprise",
         "troubleshooting",
         {
